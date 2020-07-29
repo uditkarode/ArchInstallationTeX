@@ -1,0 +1,117 @@
+\documentclass{article}
+
+\author{\textit{by @uditkarode}}
+\title{\textbf{Basic Arch Linux \\ Installation Guide}}
+
+\usepackage{fontspec}
+\setmonofont{Cascadia Mono PL}[
+Scale=MatchLowercase
+]
+
+\begin{document}
+\maketitle
+
+This document guides you through a very basic installation of \textit{Arch Linux.}
+
+It assumes you have a UEFI machine (since most new machines are UEFI).
+
+\section{Preparations}
+\subsection{Deciding install partition}
+You first need to decide what partition you're going to install Arch on. You can examine the current partition table using the command \texttt{fdisk -l}, and make adjustments or create new partitions using the \texttt{cfdisk} command. An example partition table that \texttt{fdisk -l} would output is:  
+
+\texttt{
+\\
+Device             Start        End   Sectors  Size Type\\
+/dev/nvme0n1p1      2048    1333247   1331200  650M EFI System\\
+/dev/nvme0n1p2   1333248  211048447 209715200  100G Linux filesystem\\
+/dev/nvme0n1p4 420763648  791891967 371128320  177G Apple APFS\\
+}
+\\
+In my case, \texttt{/dev/nvme0n1p2} would be my \textit{target partition}. We'll refer to the target partition as \texttt{<target>} in the rest of this document.
+
+\subsection{Readying partition for install}
+Once you've decided the \textit{target partition}, you need to run the \texttt{mkfs.ext4} command on it this way:
+\\\\
+\texttt{mkfs.ext4 /dev/nvme0n1p2}
+\\\\
+This command will format your disk and set up an empty \texttt{ext4} filesystem on it.\\\\ Once the execution of this command finishes, you need to \textit{mount} the drive. Mounting basically refers to attaching the desired filesystem to a directory on the current filesystem. We'll mount it at the \texttt{/mnt} directory this way:
+\\\\
+\texttt{mount /dev/<target> /mnt}
+\\\\
+You now have your partition ready and mounted, that ends the first section!
+
+\section{Installation}
+\subsection{Installing the \texttt{base}}
+We'll start off the installation process by installing the \texttt{base} and \texttt{base-devel} metapackages. the \texttt{base} metapackage contains all the basic packages that a system requires to function, while the \texttt{base-devel} package contains build tools and development related packages (even if you're not much of a developer, you might want to install this since it'll be used for AUR installs, more on that later). Here's the actual command:
+\\\\
+\texttt{pacstrap -i /mnt base base-devel}
+
+\subsection{Fstab generation}
+Now we're going to need to generate the fstab file, which tells your system what partitions it needs to mount and their mountpoints. It's basically telling Linux what partition everything's installed in. To generate it, you can use the following command:
+\\\\
+\texttt{genfstab -U -p /mnt > /mnt/etc/fstab}
+
+\subsection{Chrooting into our installation}
+At this point, you have a skeleton set up with all the basic packages in your target partition. However, we're missing some important packages, such as \textit{the kernel itself.} That's what we're going to install in this subsection. Let's first get into the system! 
+\\\\
+\texttt{arch-chroot /mnt}
+\\\\
+\textit{> But you said we don't have the kernel yet, how are we inside our installed system?}
+\\\\
+You aren't completely inside your new installation yet! What the \texttt{chroot} command does is that it changes the apparent root directory (\texttt{/}) for your currently booted session, hence creating a sort of a sandbox. It's still using the kernel that came with the Arch installation drive. 
+\\\\
+
+\subsection{Installation of necessary packages}
+\subsubsection{Boot related packages}
+\texttt{pacman -S grub os-prober}
+\\\\
+where:\\
+\texttt{grub} is our bootloader\\
+\texttt{os-prober} used to find other EFI operating systems
+
+\subsubsection{Kernel and firmware}
+\texttt{pacman -S linux linux-headers linux-firmware}\\\\
+You could also install \texttt{linux-lts} and \texttt{linux-lts-headers} if you want the LTS kernel, but the cutting-edge Arch kernel is stable enough, so it's on you.
+
+\subsubsection{General use packages}
+\texttt{pacman -S networkmanager sudo vim nano git zip unzip dialog}\\\\
+This installs packages that help connect to WiFi/Ethernet, and so on. 
+\subsubsection{Processor/GPU Specific drivers}
+If you have an Intel CPU, install \texttt{intel-ucode} and if you have an AMD CPU, install \texttt{amd-ucode}. These packages ensure system stability.\\\\Now for the \textbf{graphic drivers}, you have two choices - proprietary, or open-source drivers. Open-source drivers will usually do the job for you, so that's what I'm going to mention here.
+
+\begin{itemize}
+  \item for \textbf{Nvidia}: \texttt{pacman -S mesa xf86-video-nouveau}
+  \item for \textbf{Intel HD Graphics}: \texttt{pacman -S mesa xf86-video-intel}
+
+  \item for \textbf{AMD Radeon}: \texttt{pacman -S mesa xf86-video-amdgpu}
+\end{itemize}
+
+In case you have a newer \textbf{Nvidia} GPU, you might want to install the proprietary drivers instead, since they perform a bit better. However, this is only needed if you plan to do graphic intensive workon this machine.
+\\\\
+\texttt{pacman -S dkms nvidia nvidia-utils nvidia-dkms nvidia-settings}
+\\\\
+That concludes the driver installation segment of the guide!
+Now you have a properly installed Arch Linux base with proper drivers for your system. You're getting closer to the end! 
+
+\section{Configuration}
+\subsection{Setting up your user account}
+Every person that uses a linux machine is supposed to have their own accounts. Let's make one for you - the primary user!
+\\\\
+\texttt{useradd -m -G wheel -s /bin/bash yournamehere}
+
+\subsection{Letting you use sudo}
+\texttt{sudo} is a command that lets you execute other commands as the superuser. In order to use it, we must whitelist the group our user is in (\texttt{wheel}) in the sudo configs! To do this, execute: 
+\\\\
+\texttt{echo '\%wheel ALL=(ALL) ALL' >> /etc/sudoers}
+
+\subsection{Setting passwords}
+To change the password for the root user, type in:
+\\\\\texttt{passwd}\\\\
+To change the password for the your user, type in:
+\\\\\texttt{passwd yournamehere}\\\\
+\\This concludes this portion of the guide!
+
+\section{Setting up visual factors}
+Here, we set up how our installation looks. If you're coming from Windows or macOS, this might seem a bit strange to you. However, this is a common thing in the Linux community. What we did till now is just going to give us a command line interface. We now have choice over the Desktop Environment (commonly abbreviated as DE) we want to install. In this guide, we're going to go with Gnome, since this is what Ubuntu uses, and is easy to use and install for even new users. Here's what you need to do:
+
+\end{document}
