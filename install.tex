@@ -13,9 +13,8 @@ Scale=MatchLowercase
 
 This document guides you through a very basic installation of \textit{Arch Linux.}
 
-It assumes you have a UEFI machine (since most new machines are UEFI).
-
 \section{Preparations}
+This guide assumes you have a UEFI-based machine with a GPT partition table (all the new machines confirm to this), and that you already have a USB stick ready (with the ISO obtained from \texttt{https://www.archlinux.org/download/}), and have booted into it, hence obtaining a shell. This is where you're supposed to enter commands.
 \subsection{Deciding install partition}
 You first need to decide what partition you're going to install Arch on. You can examine the current partition table using the command \texttt{fdisk -l}, and make adjustments or create new partitions using the \texttt{cfdisk} command. An example partition table that \texttt{fdisk -l} would output is:  
 
@@ -40,9 +39,42 @@ This command will format your disk and set up an empty \texttt{ext4} filesystem 
 \\\\
 You now have your partition ready and mounted, that ends the first section!
 
+\section{Connecting to the internet}
+\subsection{Activating the connection}
+From now on, we're going to install packages from the Arch repositories, which requires us to be connected to the internet. \textbf{If you want to use Ethernet, just plug in the Ethernet cable and go straight to 2.2!}\\Here's how you do it if you want to use WiFi:
+\\\\
+\texttt{wifi-menu}
+\\\\
+However, newer installation mediums for Arch Linux no longer contain the \texttt{netctl} package, so if you see \texttt{command not found} after executing \texttt{wifi-menu}, this is what you need to do:
+\begin{itemize}
+  \item{\texttt{iwctl}}
+    \\This will open the \texttt{iwctl} prompt.
+  \item{\texttt{device list}}
+    \\This command will output the WiFi devices that \texttt{iwctl} detects on your machine. Note the \texttt{name} of the device you want to use. It'll usually be \texttt{wlan0}. We'll refer to it as \texttt{<device>} now.
+  \item{\texttt{station <device> get-networks}}
+    \\This command will output the WiFi networks it detects around you. Note the network you want to connect to. We'll refer to it as \texttt{<wifiname>} from now on.
+  \item{\texttt{station <device> connect <wifiname>}}
+    \\If you don't see an error like \texttt{Operation failed}, you're good to go! Press \texttt{CTRL + D} to exit the \texttt{iwctl} prompt and return your shell.
+\end{itemize}
+
+\subsection{Testing the connection}
+To test your connection to the internet, execute:
+\\\\\texttt{ping 8.8.8.8}
+\\\\
+You should see an output like:\\
+\texttt{
+  \\
+  PING 8.8.8.8 (8.8.8.8) 56(84) bytes of data.\\
+64 bytes from 8.8.8.8: icmp\_seq=1 ttl=117 time=53.5 ms\\
+}
+\\
+Press \texttt{CTRL + C} to stop it.
+\\\\
+If you see \texttt{connect: Network is unreachable}, something went wrong. You should retry section 2.1, or you won't be able to proceed.
+
 \section{Installation}
 \subsection{Installing the \texttt{base}}
-We'll start off the installation process by installing the \texttt{base} and \texttt{base-devel} metapackages. the \texttt{base} metapackage contains all the basic packages that a system requires to function, while the \texttt{base-devel} package contains build tools and development related packages (even if you're not much of a developer, you might want to install this since it'll be used for AUR installs, more on that later). Here's the actual command:
+We'll start off the installation process by installing the \texttt{base} and \texttt{base-devel} metapackages. the \texttt{base} metapackage contains all the basic packages that a system requires to function, while \texttt{base-devel} contains build tools and development related packages (even if you're not much of a developer, you might want to install this since it'll be used for AUR installs, more on that later). Here's the actual command:
 \\\\
 \texttt{pacstrap -i /mnt base base-devel}
 
@@ -63,11 +95,12 @@ You aren't completely inside your new installation yet! What the \texttt{chroot}
 
 \subsection{Installation of necessary packages}
 \subsubsection{Boot related packages}
-\texttt{pacman -S grub os-prober}
+\texttt{pacman -S grub os-prober efibootmgr}
 \\\\
 where:\\
 \texttt{grub} is our bootloader\\
-\texttt{os-prober} used to find other EFI operating systems
+\texttt{os-prober} is used to find other EFI operating systems
+\texttt{efibootmgr} is a helper tool for GRUB installation tool 
 
 \subsubsection{Kernel and firmware}
 \texttt{pacman -S linux linux-headers linux-firmware}\\\\
@@ -78,7 +111,9 @@ You could also install \texttt{linux-lts} and \texttt{linux-lts-headers} if you 
 This installs packages that help connect to WiFi/Ethernet, and so on. 
 \subsubsection{Processor/GPU Specific drivers}
 If you have an Intel CPU, install \texttt{intel-ucode} and if you have an AMD CPU, install \texttt{amd-ucode}. These packages ensure system stability.\\\\Now for the \textbf{graphic drivers}, you have two choices - proprietary, or open-source drivers. Open-source drivers will usually do the job for you, so that's what I'm going to mention here.
-
+\\\\
+\textbf{NOTE}: If you're using a laptop that has two GPUs (i.e. \textit{Intel HD Graphics}\textbf{ or }\textit{AMD Radeon} \textbf{+} \textit{Nvidia}), install the graphic drivers for the first/weaker GPU (may be \textit{Intel HD Graphics} or \textit{AMD Radeon}). This is because the more powerful GPU provided (usually \textit{Nvidia}) is only supposed to be used for graphic intensive tasks, since the weaker GPU can usually handle all other tasks without any issues whatsoever. You'll need additional setup to be able to use the other/powerful GPU, and the configuration for it is out of scope for this guide.
+\\
 \begin{itemize}
   \item for \textbf{Nvidia}: \texttt{pacman -S mesa xf86-video-nouveau}
   \item for \textbf{Intel HD Graphics}: \texttt{pacman -S mesa xf86-video-intel}
@@ -86,18 +121,20 @@ If you have an Intel CPU, install \texttt{intel-ucode} and if you have an AMD CP
   \item for \textbf{AMD Radeon}: \texttt{pacman -S mesa xf86-video-amdgpu}
 \end{itemize}
 
-In case you have a newer \textbf{Nvidia} GPU, you might want to install the proprietary drivers instead, since they perform a bit better. However, this is only needed if you plan to do graphic intensive workon this machine.
+In case you have a newer \textbf{Nvidia} GPU, you might want to install the proprietary drivers instead, since they perform a bit better. However, this is only needed if you plan to perform graphic-intensive tasks on this machine.
 \\\\
 \texttt{pacman -S dkms nvidia nvidia-utils nvidia-dkms nvidia-settings}
 \\\\
 That concludes the driver installation segment of the guide!
-Now you have a properly installed Arch Linux base with proper drivers for your system. You're getting closer to the end! 
+Now you have an Arch Linux base with proper drivers for your system. You're getting closer to the end! 
 
 \section{Configuration}
 \subsection{Setting up your user account}
 Every person that uses a linux machine is supposed to have their own accounts. Let's make one for you - the primary user!
 \\\\
 \texttt{useradd -m -G wheel -s /bin/bash yournamehere}
+\\\\
+\textbf{NOTE:} make sure your username starts with a lowercase letter!
 
 \subsection{Letting you use sudo}
 \texttt{sudo} is a command that lets you execute other commands as the superuser. In order to use it, we must whitelist the group our user is in (\texttt{wheel}) in the sudo configs! To do this, execute: 
@@ -107,11 +144,61 @@ Every person that uses a linux machine is supposed to have their own accounts. L
 \subsection{Setting passwords}
 To change the password for the root user, type in:
 \\\\\texttt{passwd}\\\\
-To change the password for the your user, type in:
-\\\\\texttt{passwd yournamehere}\\\\
-\\This concludes this portion of the guide!
+To change the password for your user, type in:
+\\\\\texttt{passwd yournamehere}\\
+\\Make sure to change the password for both the root user and your personal user. If you've done that, great work! This concludes the configuration section of the guide!
 
 \section{Setting up visual factors}
-Here, we set up how our installation looks. If you're coming from Windows or macOS, this might seem a bit strange to you. However, this is a common thing in the Linux community. What we did till now is just going to give us a command line interface. We now have choice over the Desktop Environment (commonly abbreviated as DE) we want to install. In this guide, we're going to go with Gnome, since this is what Ubuntu uses, and is easy to use and install for even new users. Here's what you need to do:
+Here, we set up how our installation looks. If you're coming from Windows or macOS, this might seem a bit strange to you. However, this is a common thing in the Linux world. What we did till now is just going to give us a command line interface. We now have choice over the Desktop Environment (commonly abbreviated as DE) we want to install. In this guide, we're going to go with Gnome, since this is what Ubuntu uses, and is easy to use and install for even new users. Here's what you need to do:
+\\\\
+\texttt{pacman -S gnome}
+\\\\
+That's it! This might install a lot of packages and take a lot of time. 
+
+\section{Installing the bootloader}
+Now we're going to install the bootloader, \texttt{GRUB} onto our system.
+\\Before we do this, you must find out the EFI partition of your system.
+\\Again, we do this with \texttt{fdisk -l}. Let's look at a sample output.
+\\\\
+\texttt{
+  \\
+Device             Start        End   Sectors  Size Type\\
+/dev/nvme0n1p1      2048    1333247   1331200  650M EFI System\\
+/dev/nvme0n1p2   1333248  211048447 209715200  100G Linux filesystem\\
+/dev/nvme0n1p4 420763648  791891967 371128320  177G Apple APFS\\
+}
+\\
+In my case, \texttt{/dev/nvme0n1p1} is the EFI partition. We'll call this \textit{efitarget} from now on. To install \texttt{GRUB}, run the following:
+\\\\
+\texttt{
+  cd /\\
+  mkdir efidir\\
+  mount efitarget efidir\\
+  grub-install --target=x86\_64-efi --efi-directory=esp --bootloader-id=GRUB
+  grub-mkconfig -o /boot/grub/grub.cfg
+}
+\\\\
+That does it!
+
+\section{Enabling required services}
+This is the last step of this guide. We need to enable \texttt{gdm} (Gnome Display Manager) and \texttt{NetworkManager} (the tool to let us use the internet), and set a proper locale. This is how you do it:
+\\\\
+\texttt{systemctl enable gdm}\\
+\texttt{systemctl enable NetworkManager}\\
+\texttt{localectl set-locale LANG=en\_US.UTF-8}
+\\\\
+aaaand you're done!
+
+\section{Exiting and Rebooting}
+You're in the end game now :) all you need to do is:
+\\
+\texttt{
+  \\
+  exit\\
+  umount -R /mnt\\
+  reboot
+}
+\\\\
+Once that's done, remove the USB Stick, and wait for the computer to boot. It should boot right into GRUB. If not, you can change the boot order from your BIOS to make it boot GRUB. Once your system boots, you'll see the login screen. Enter the password you entered in section 3.3 and you should be in your system :)
 
 \end{document}
