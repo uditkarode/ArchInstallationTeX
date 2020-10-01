@@ -174,7 +174,7 @@ In my case, \texttt{/dev/nvme0n1p1} is the EFI partition. We'll call this \texti
   cd /\\
   mkdir efidir\\
   mount efitarget efidir\\
-  grub-install --target=x86\_64-efi --efi-directory=esp --bootloader-id=GRUB
+  grub-install --target=x86\_64-efi --efi-directory=efidir --bootloader-id=GRUB
   grub-mkconfig -o /boot/grub/grub.cfg
 }
 \\\\
